@@ -25,7 +25,7 @@ class LoginViewController: UIViewController {
                 self.showAlert(title: "Login Failed", message: error.localizedDescription)
             } else {
                 // Successfully logged in, navigate to ProfileDisplayViewController
-                self.navigateToProfileDisplay()
+                self.navigateToHome()
             }
         }
     }
@@ -39,19 +39,19 @@ class LoginViewController: UIViewController {
           }
       }
     
-    func navigateToProfileDisplay() {
-        // Make sure the user is authenticated before navigating
+    func navigateToHome() {
+        // Ensure the user is authenticated
         if Auth.auth().currentUser != nil {
             let storyboard = UIStoryboard(name: "Main", bundle: nil)
-            if let profileDisplayVC = storyboard.instantiateViewController(withIdentifier: "ProfileDisplayViewController") as? ProfileDisplayViewController {
-                profileDisplayVC.modalPresentationStyle = .fullScreen
-                self.present(profileDisplayVC, animated: true, completion: nil)
+            if let homeVC = storyboard.instantiateViewController(withIdentifier: "HomeViewController") as? HomeViewController {
+                homeVC.modalPresentationStyle = .fullScreen
+                self.present(homeVC, animated: true, completion: nil)
             }
         } else {
-            // User is not authenticated, show alert
             showAlert(title: "Error", message: "User is not authenticated.")
         }
     }
+
     
     func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)

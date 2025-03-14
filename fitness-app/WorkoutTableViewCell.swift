@@ -11,11 +11,21 @@ class WorkoutTableViewCell: UITableViewCell {
         super.awakeFromNib()
     }
 
-    // Method to configure the cell with workout data
     func configure(with workoutLog: WorkoutLog) {
         workoutTypeLabel.text = workoutLog.workoutType
-        durationLabel.text = "\(workoutLog.duration) min"
+        durationLabel.text = formatDuration(workoutLog.duration)
         caloriesLabel.text = "\(workoutLog.calories) kcal"
         waterLabel.text = "\(workoutLog.water) ml"
+    }
+
+    // Helper function to format duration
+    private func formatDuration(_ duration: Int) -> String {
+        let hours = duration / 60
+        let minutes = duration % 60
+        if hours > 0 {
+            return "\(hours) hr \(minutes) min"
+        } else {
+            return "\(minutes) min"
+        }
     }
 }

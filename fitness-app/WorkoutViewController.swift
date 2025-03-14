@@ -1,4 +1,6 @@
 import UIKit
+import FirebaseFirestore
+import FirebaseAuth
 
 // Delegate protocol to send workout data back
 protocol WorkoutViewControllerDelegate: AnyObject {
@@ -13,7 +15,7 @@ class WorkoutViewController: UIViewController {
     @IBOutlet weak var waterField: UITextField!
 
     var selectedWorkoutType: String = ""
-    weak var delegate: WorkoutViewControllerDelegate? // Delegate property
+    weak var delegate: WorkoutViewControllerDelegate?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,24 +38,54 @@ class WorkoutViewController: UIViewController {
         workoutTypeButton.showsMenuAsPrimaryAction = true
     }
 
-    // Handle logging the workout
+    // Log Workout and store in Firestore
     @IBAction func logWorkout(_ sender: UIButton) {
-        // Directly check if the workoutType is empty
+        guard let user = Auth.auth().currentUser else {
+            showAlert(title: "Error", message: "User is not authenticated.")
+            return
+        }
+        
         guard !selectedWorkoutType.isEmpty,
               let durationText = durationField.text, let duration = Int(durationText),
               let caloriesText = caloriesField.text, let calories = Int(caloriesText),
               let waterText = waterField.text, let water = Int(waterText) else {
-            // Handle invalid input
-            let alert = UIAlertController(title: "Invalid Input", message: "Please fill all fields correctly.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-            present(alert, animated: true, completion: nil)
+            showAlert(title: "Invalid Input", message: "Please fill all fields correctly.")
             return
         }
-        
-        // Send data back to HomeViewController via the delegate
-        delegate?.didLogWorkout(workoutType: selectedWorkoutType, duration: duration, calories: calories, water: water)
-        
-        // Dismiss the current view
-        dismiss(animated: true, completion: nil)
+
+        let db = Firestore.firestore()
+        let workoutData: [String: Any] = [
+            "workoutType": selectedWorkoutType,
+            "duration": duration,
+            "calories": calories,
+            "water": water,
+            "timestamp": Timestamp(date: Date())
+        ]
+
+        db.collection("users").document(user.uid).collection("workoutLogs").addDocument(data: workoutData) { error in
+            if let error = error {
+                print("Error saving workout log: \(error.localizedDescription)")
+            } else {
+                print("Workout log saved successfully!")
+                self.navigateToHome()
+            }
+        }
+      
+    }
+    
+    func navigateToHome() {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        if let homeVC = storyboard.instantiateViewController(withIdentifier: "HomeViewController") as? HomeViewController {
+            homeVC.modalPresentationStyle = .fullScreen
+            self.present(homeVC, animated: true, completion: nil)
+        }else {
+            showAlert(title: "Error", message: "User is not authenticated.")
+        }
+    }
+
+    func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+        self.present(alert, animated: true, completion: nil)
     }
 }
