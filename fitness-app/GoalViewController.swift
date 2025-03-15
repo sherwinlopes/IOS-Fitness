@@ -31,7 +31,7 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
 
     // Setup goal type menu for selection
     func setupGoalMenu() {
-        let goalTypes = ["Calories", "Water"]
+        let goalTypes = ["Steps to Take" ,"Calories to Burn", "Water to Drink"]
 
         let menuItems = goalTypes.map { type in
             UIAction(title: type, handler: { _ in
@@ -131,8 +131,6 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
         }
     }
 
-    // MARK: - UITableView DataSource Methods
-
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return goals.count
     }
@@ -144,17 +142,15 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
 
         let goal = goals[indexPath.row]
         
-        // Calculate current progress based on goal type (Calories or Water)
         let currentProgress: Int
-        if goal.type == "Calories" {
+        if goal.type == "Calories to Burn" {
             currentProgress = totalCalories
-        } else if goal.type == "Water" {
+        } else if goal.type == "Water to Drink" {
             currentProgress = totalWater
         } else {
             currentProgress = 0
         }
 
-        // Configure the cell with the goal and the current progress
         cell.configure(with: goal, currentProgress: currentProgress)
 
         return cell

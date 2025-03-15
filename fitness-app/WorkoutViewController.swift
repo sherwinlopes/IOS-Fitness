@@ -24,7 +24,7 @@ class WorkoutViewController: UIViewController {
 
     // Setup workout type menu
     func setupWorkoutMenu() {
-        let workoutTypes = ["Running", "Cycling", "Walking", "Swimming", "Workout"]
+        let workoutTypes = ["Walking", "Cycling", "Running", "Swimming", "Workout"]
         
         let menuItems = workoutTypes.map { type in
             UIAction(title: type, handler: { _ in

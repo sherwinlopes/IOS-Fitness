@@ -11,35 +11,57 @@ struct WorkoutLog {
     var timestamp: Timestamp
 }
 
-
 class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, WorkoutViewControllerDelegate {
 
+    @IBOutlet weak var username: UILabel!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var stepsLabel: UILabel!
     @IBOutlet weak var caloriesLabel: UILabel!
     @IBOutlet weak var waterLabel: UILabel!
-
-    @IBOutlet weak var goalName: UILabel!  // Display the goal name (Calories or Water)
-    @IBOutlet weak var goalTargetValue: UILabel!  // Display the target value for the goal
-    @IBOutlet weak var goalProgress: UIProgressView!  // View that will display the progress visually
+    @IBOutlet weak var goalName: UILabel!
+    @IBOutlet weak var goalTargetValue: UILabel!
+    @IBOutlet weak var goalProgress: UIProgressView!
     
     let healthStore = HKHealthStore()
-
 
     var totalCalories: Int = 0
     var totalWater: Int = 0
     var workoutLogs: [WorkoutLog] = []
-    var goals: [Goal] = []  // Array to store goals from Firebase
+    var goals: [Goal] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
         tableView.dataSource = self
         tableView.delegate = self
         fetchWorkoutLogs()
-        fetchGoalsFromFirestore()  // Fetch goals when the view loads
-        
+        fetchGoalsFromFirestore()
+        fetchUserProfile()
         requestHealthKitAuthorization()
 
+        // Increase the height of progress bar (UIProgressView)
+        goalProgress.heightAnchor.constraint(equalToConstant: 10).isActive = true
+    }
+
+    func fetchUserProfile() {
+        guard let user = Auth.auth().currentUser else {
+            showAlert(title: "Error", message: "User is not authenticated.")
+            return
+        }
+
+        let db = Firestore.firestore()
+        db.collection("users").document(user.uid).getDocument { (document, error) in
+            if let error = error {
+                self.showAlert(title: "Error", message: "Error fetching user data: \(error.localizedDescription)")
+                return
+            }
+
+            if let document = document, document.exists {
+                let data = document.data()
+                self.username.text = data?["name"] as? String ?? "No Name"
+            } else {
+                self.showAlert(title: "Error", message: "User data not found.")
+            }
+        }
     }
 
     func requestHealthKitAuthorization() {
@@ -61,42 +83,53 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
             }
         }
     }
-    
+
     func fetchStepsData() {
-            // Define the step count type
-            let stepCountType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
-
-            // Get the current date and the start of today
-            let calendar = Calendar.current
-            let now = Date()
-            let startOfDay = calendar.startOfDay(for: now)
-
-            // Create a predicate for the date range (start of the day to now)
-            let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: now, options: .strictEndDate)
-
-            // Create a query to get cumulative sum of steps
-            let query = HKStatisticsQuery(quantityType: stepCountType, quantitySamplePredicate: predicate, options: .cumulativeSum) { query, statistics, error in
-                guard let statistics = statistics, error == nil else {
-                    print("Error fetching steps data: \(error?.localizedDescription ?? "Unknown error")")
-                    return
-                }
-
-                // Get the total number of steps from the query
-                let steps = statistics.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
-
-                // Update the stepsLabel on the main thread
-                DispatchQueue.main.async {
-                    self.stepsLabel.text = "\(Int(steps)) steps"
-                }
+        // Check if HealthKit is available
+        guard HKHealthStore.isHealthDataAvailable() else {
+            print("HealthKit is not available on this device.")
+            DispatchQueue.main.async {
+                self.stepsLabel.text = "0 steps"  // Display 0 steps if HealthKit is unavailable
             }
-
-            // Execute the query
-            healthStore.execute(query)
+            return
         }
 
+        // Define the step count type
+        let stepCountType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
 
-    
-    /// Fetch workouts from Firestore and update total calories & water
+        // Get the current date and the start of today
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfDay = calendar.startOfDay(for: now)
+
+        // Create a predicate for the date range (start of the day to now)
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: now, options: .strictEndDate)
+
+        // Create a query to get the cumulative sum of steps
+        let query = HKStatisticsQuery(quantityType: stepCountType, quantitySamplePredicate: predicate, options: .cumulativeSum) { query, statistics, error in
+            guard let statistics = statistics, error == nil else {
+                // If there's an error, print the error and set steps to 0
+                print("Error fetching steps data: \(error?.localizedDescription ?? "Unknown error")")
+                DispatchQueue.main.async {
+                    self.stepsLabel.text = "0 steps"  // Set to zero if there is an error
+                }
+                return
+            }
+
+            // Get the total number of steps from the query
+            let steps = statistics.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
+
+            // Update the stepsLabel on the main thread
+            DispatchQueue.main.async {
+                self.stepsLabel.text = "\(Int(steps)) steps"
+            }
+        }
+
+        // Execute the query
+        healthStore.execute(query)
+    }
+
+
     func fetchWorkoutLogs() {
         guard let user = Auth.auth().currentUser else {
             showAlert(title: "Error", message: "User is not authenticated.")
@@ -117,38 +150,31 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
                 self.totalWater = 0
 
                 for document in snapshot!.documents {
-                                let data = document.data()
-                                
-                                // Ensure the 'timestamp' field is safely retrieved
-                                if let workoutType = data["workoutType"] as? String,
-                                   let duration = data["duration"] as? Int,
-                                   let calories = data["calories"] as? Int,
-                                   let water = data["water"] as? Int,
-                                   let timestamp = data["timestamp"] as? Timestamp {  // Get timestamp from Firestore
-                                    
-                                    // Now you are passing the 'timestamp' to the WorkoutLog initializer
-                                    let log = WorkoutLog(workoutType: workoutType, duration: duration, calories: calories, water: water, timestamp: timestamp)
-                                    self.workoutLogs.append(log)
+                    let data = document.data()
 
-                                    self.totalCalories += calories
-                                    self.totalWater += water
-                                }
-                            }
+                    if let workoutType = data["workoutType"] as? String,
+                       let duration = data["duration"] as? Int,
+                       let calories = data["calories"] as? Int,
+                       let water = data["water"] as? Int,
+                       let timestamp = data["timestamp"] as? Timestamp {
+
+                        let log = WorkoutLog(workoutType: workoutType, duration: duration, calories: calories, water: water, timestamp: timestamp)
+                        self.workoutLogs.append(log)
+
+                        self.totalCalories += calories
+                        self.totalWater += water
+                    }
+                }
 
                 self.caloriesLabel.text = "\(self.totalCalories) kcal"
                 self.waterLabel.text = "\(self.totalWater) ml"
-
-                // Update total calories & water in Firestore
                 self.updateTotalStatsInFirestore()
-
                 self.tableView.reloadData()
 
-                // After updating workout logs, fetch the goal with the most progress
                 self.updateGoalProgress()
             }
     }
 
-    // Fetch goals from Firestore
     func fetchGoalsFromFirestore() {
         guard let user = Auth.auth().currentUser else { return }
 
@@ -170,16 +196,14 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
                 }
             }
 
-            self.updateGoalProgress()  // After fetching the goals, update the progress
+            self.updateGoalProgress()
         }
     }
 
-    // Calculate and display the goal with the most progress
     func updateGoalProgress() {
         var mostProgressedGoal: Goal?
         var highestProgress: Float = 0
 
-        // Calculate progress for each goal (compare with total calories or total water)
         for goal in goals {
             let progress: Float
             if goal.type == "Calories" {
@@ -190,26 +214,19 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
                 continue
             }
 
-            // Update the most progressed goal
             if progress > highestProgress {
                 highestProgress = progress
                 mostProgressedGoal = goal
             }
         }
 
-        // Update the UI based on the most progressed goal
         if let goal = mostProgressedGoal {
-            // Update goal name and target value
             goalName.text = "Goal: \(goal.type)"
             goalTargetValue.text = "Target: \(goal.target)"
-
-            // Update the goal progress visually
-            let progressWidth = goalProgress.frame.width * CGFloat(min(highestProgress, 1.0))  // Progress as width
-            goalProgress.frame.size.width = progressWidth
+            goalProgress.progress = min(highestProgress, 1.0)
         }
     }
 
-    // Save total calories & water to Firestore
     func updateTotalStatsInFirestore() {
         guard let user = Auth.auth().currentUser else { return }
 
@@ -242,18 +259,19 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
     func didLogWorkout(workoutType: String, duration: Int, calories: Int, water: Int) {
         fetchWorkoutLogs()
     }
-    
-    @IBAction func progressTapped(_ sender: UIButton) {
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        if let chartVC = storyboard.instantiateViewController(withIdentifier: "ChartsViewController") as? ChartsViewController {
-            present(chartVC, animated: true, completion: nil)
-        }
-    }
 
+    // Action method to navigate to Goals screen
     @IBAction func goalsWorkoutTapped(_ sender: UIButton) {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         if let goalVC = storyboard.instantiateViewController(withIdentifier: "GoalViewController") as? GoalViewController {
             present(goalVC, animated: true, completion: nil)
+        }
+    }
+
+    @IBAction func progressTapped(_ sender: UIButton) {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        if let chartVC = storyboard.instantiateViewController(withIdentifier: "ChartsViewController") as? ChartsViewController {
+            present(chartVC, animated: true, completion: nil)
         }
     }
 
