@@ -419,7 +419,7 @@
         <!--Goal View Controller-->
         <scene sceneID="rNN-UY-1aT">
             <objects>
-                <viewController id="aob-QR-HGe" customClass="GoalViewController" customModule="fitness_app" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="GoalViewController" id="aob-QR-HGe" customClass="GoalViewController" customModule="fitness_app" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="hLH-Qn-GnQ">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -441,9 +441,6 @@
                                     </children>
                                 </menu>
                                 <state key="normal" title="Pick up"/>
-                                <connections>
-                                    <action selector="selectWorkoutTypeTapped:" destination="xXr-od-Vi9" eventType="touchUpInside" id="MVl-D3-siX"/>
-                                </connections>
                             </button>
                             <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" fixedFrame="YES" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="qtR-1c-42M">
                                 <rect key="frame" x="207" y="217" width="170" height="34"/>
@@ -488,7 +485,7 @@
                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                         <color key="backgroundColor" systemColor="opaqueSeparatorColor"/>
                                         <prototypes>
-                                            <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" selectionStyle="blue" hidesAccessoryWhenEditing="NO" indentationLevel="1" indentationWidth="0.0" rowHeight="80" id="3wW-OH-DLU" customClass="WorkoutTableViewCell" customModule="fitness_app" customModuleProvider="target">
+                                            <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" selectionStyle="blue" hidesAccessoryWhenEditing="NO" indentationLevel="1" indentationWidth="0.0" reuseIdentifier="GoalCell" rowHeight="80" id="3wW-OH-DLU" customClass="GoalTableViewCell" customModule="fitness_app" customModuleProvider="target">
                                                 <rect key="frame" x="0.0" y="50" width="345" height="80"/>
                                                 <autoresizingMask key="autoresizingMask"/>
                                                 <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="3wW-OH-DLU" id="ueB-fI-7W9">
@@ -527,6 +524,11 @@
                                                         </view>
                                                     </subviews>
                                                 </tableViewCellContentView>
+                                                <connections>
+                                                    <outlet property="goalProgress" destination="uNd-ek-Vds" id="FBO-YV-6mv"/>
+                                                    <outlet property="goalTargetLabel" destination="xt3-n2-Xx4" id="1MK-oh-bo8"/>
+                                                    <outlet property="goalTypeLabel" destination="QWE-Lx-SyY" id="GYZ-Nv-uIs"/>
+                                                </connections>
                                             </tableViewCell>
                                         </prototypes>
                                     </tableView>
@@ -538,19 +540,59 @@
                                     </userDefinedRuntimeAttribute>
                                 </userDefinedRuntimeAttributes>
                             </view>
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="MFk-2n-DQ5">
+                                <rect key="frame" x="16" y="342" width="361" height="35"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="gray" title="Save Workout"/>
+                                <connections>
+                                    <action selector="saveGoal:" destination="aob-QR-HGe" eventType="touchUpInside" id="iaq-Lt-2Eg"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="P8j-5B-CJ4"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                     </view>
                     <connections>
-                        <outlet property="goalTable" destination="6ya-KV-8PT" id="hf2-ml-o5f"/>
-                        <outlet property="goalType" destination="eIE-u9-OQR" id="dTI-b2-70z"/>
-                        <outlet property="targetField" destination="qtR-1c-42M" id="wHJ-Eg-KFZ"/>
+                        <outlet property="goalTable" destination="7qH-Pa-2Aj" id="dJe-sU-EjJ"/>
+                        <outlet property="goalTypeButton" destination="eIE-u9-OQR" id="9Bn-A7-FSZ"/>
+                        <outlet property="targetField" destination="qtR-1c-42M" id="W6Z-Fp-VKb"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="m3M-Xf-3Ad" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="794.6564885496183" y="1293.661971830986"/>
+        </scene>
+        <!--Charts View Controller-->
+        <scene sceneID="gx0-w1-qiR">
+            <objects>
+                <viewController storyboardIdentifier="ChartsViewController" id="HDc-c8-suu" customClass="ChartsViewController" customModule="fitness_app" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="tsh-MA-ZBV">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="otc-HC-mvn" customClass="LineChartView" customModule="DGCharts">
+                                <rect key="frame" x="16" y="59" width="361" height="240"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            </view>
+                            <view contentMode="scaleToFill" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="WxM-yB-0QI" customClass="LineChartView" customModule="DGCharts">
+                                <rect key="frame" x="16" y="410" width="361" height="240"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            </view>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="K6X-4y-SnO"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                    </view>
+                    <connections>
+                        <outlet property="caloriesChartView" destination="otc-HC-mvn" id="PRY-AW-CIp"/>
+                        <outlet property="waterChartView" destination="WxM-yB-0QI" id="3Mc-eE-zmB"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="PXH-hA-tDw" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="1500" y="1293.661971830986"/>
         </scene>
         <!--Home View Controller-->
         <scene sceneID="6a1-NL-1JU">
@@ -778,6 +820,18 @@
                                             </userDefinedRuntimeAttribute>
                                         </userDefinedRuntimeAttributes>
                                     </view>
+                                    <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="7fe-c3-sN2">
+                                        <rect key="frame" x="285" y="6" width="68" height="35"/>
+                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                        <state key="normal" title="Button"/>
+                                        <buttonConfiguration key="configuration" style="gray" title="Goals">
+                                            <color key="baseBackgroundColor" white="0.33333333329999998" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        </buttonConfiguration>
+                                        <connections>
+                                            <action selector="goalsWorkoutTapped:" destination="SB6-QP-o4T" eventType="touchUpInside" id="LHh-Iw-wDa"/>
+                                            <action selector="logWorkoutTapped:" destination="SB6-QP-o4T" eventType="touchUpInside" id="i5L-or-lpa"/>
+                                        </connections>
+                                    </button>
                                 </subviews>
                                 <color key="backgroundColor" systemColor="systemGray3Color"/>
                                 <userDefinedRuntimeAttributes>
@@ -800,12 +854,24 @@
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="zP3-qc-PdI">
+                                <rect key="frame" x="265" y="42" width="112" height="35"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="tinted" title="PROGRESS"/>
+                                <connections>
+                                    <action selector="progressTapped:" destination="SB6-QP-o4T" eventType="touchUpInside" id="kwv-K2-DxB"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="vAK-Ze-eXz"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                     </view>
                     <connections>
                         <outlet property="caloriesLabel" destination="EgT-Bx-yVe" id="KGI-5G-ZkM"/>
+                        <outlet property="goalName" destination="Yg9-CS-1Ku" id="X2J-4R-5vR"/>
+                        <outlet property="goalProgress" destination="hb9-PZ-jal" id="lkQ-I8-b5H"/>
+                        <outlet property="goalTargetValue" destination="CoV-JZ-4Ca" id="h2M-Mb-MD2"/>
                         <outlet property="stepsLabel" destination="xau-ib-4vB" id="nbi-i0-KV0"/>
                         <outlet property="tableView" destination="Ltk-ne-X7q" id="UE2-y7-JER"/>
                         <outlet property="waterLabel" destination="Quu-Vw-CWL" id="Xs0-Y3-naM"/>
