@@ -9,18 +9,28 @@ class GoalTableViewCell: UITableViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         // Initialization code
+        goalProgress.heightAnchor.constraint(equalToConstant: 10).isActive = true
     }
 
-    // Configure the cell with goal data and current progress
     func configure(with goal: Goal, currentProgress: Int) {
         goalTypeLabel.text = goal.type
-        goalTargetLabel.text = "Target: \(goal.target)"
+        goalTargetLabel.text = "\(goal.target)"
         
-        // Calculate the progress as a float (currentProgress/target)
-        let progress = Float(currentProgress) / Float(goal.target)
-        goalProgress.progress = min(progress, 1.0) // Ensure progress doesn't exceed 1.0
+        var progress: Float = 0.0
+        
+        // Calculate the progress for "Calories to Burn" and "Water to Drink"
+        if goal.type == "Calories to Burn" {
+            // Ensure that the totalCalories is used for progress calculation
+            progress = Float(currentProgress) / Float(goal.target)
+        } else if goal.type == "Water to Drink" {
+            // Use the totalWater for water progress
+            progress = Float(currentProgress) / Float(goal.target)
+        }
 
-        // ✅ Print current progress and target values to console
+        // Set the progress value to the progress bar, ensuring it doesn't exceed 1.0
+        goalProgress.progress = min(progress, 1.0)
+        
+        // Optional: Print the progress for debugging purposes
         print("Goal Type: \(goal.type)")
         print("Current Progress Value: \(currentProgress)")
         print("Max Progress Value: \(goal.target)")

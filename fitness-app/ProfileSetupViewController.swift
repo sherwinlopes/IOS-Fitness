@@ -6,29 +6,38 @@ class ProfileSetupViewController: UIViewController {
 
     @IBOutlet weak var nameTextField: UITextField!
     @IBOutlet weak var ageTextField: UITextField!
-    @IBOutlet weak var genderSegmentedControl: UISegmentedControl! // IBOutlet for UISegmentedControl
+    @IBOutlet weak var genderSegmentedControl: UISegmentedControl!
     @IBOutlet weak var heightTextField: UITextField!
     @IBOutlet weak var weightTextField: UITextField!
+    @IBOutlet weak var saveButton: UIButton!
     
-    // Store the selected gender
     var selectedGender = "Male"
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Set the default selected gender (if needed)
-        genderSegmentedControl.selectedSegmentIndex = 0 // Default to "Male"
+        genderSegmentedControl.selectedSegmentIndex = 0
+        setupUI()
+    }
+
+    func setupUI() {
+        view.backgroundColor = UIColor.systemBackground
+        
+        saveButton.backgroundColor = UIColor.systemGreen
+        saveButton.setTitleColor(.white, for: .normal)
+        saveButton.layer.cornerRadius = 10
+        saveButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        
+        [nameTextField, ageTextField, heightTextField, weightTextField].forEach {
+            $0?.backgroundColor = UIColor.systemGray6
+            $0?.layer.cornerRadius = 8
+            $0?.layer.borderWidth = 1
+            $0?.layer.borderColor = UIColor.systemGray4.cgColor
+            $0?.clipsToBounds = true
+        }
     }
 
     @IBAction func genderChanged(_ sender: UISegmentedControl) {
-        // Update the selectedGender based on the segment index
-        switch sender.selectedSegmentIndex {
-        case 0:
-            selectedGender = "Male"
-        case 1:
-            selectedGender = "Female"
-        default:
-            break
-        }
+        selectedGender = sender.selectedSegmentIndex == 0 ? "Male" : "Female"
     }
 
     @IBAction func saveProfileTapped(_ sender: UIButton) {
@@ -41,7 +50,6 @@ class ProfileSetupViewController: UIViewController {
             return
         }
 
-        let db = Firestore.firestore()
         let userData: [String: Any] = [
             "name": name,
             "age": Int(age) ?? 0,
@@ -50,7 +58,7 @@ class ProfileSetupViewController: UIViewController {
             "weight": Double(weight) ?? 0.0
         ]
 
-        db.collection("users").document(userID).setData(userData) { error in
+        Firestore.firestore().collection("users").document(userID).setData(userData) { error in
             if let error = error {
                 self.showAlert(title: "Error Saving Data", message: error.localizedDescription)
             } else {
@@ -60,16 +68,15 @@ class ProfileSetupViewController: UIViewController {
     }
 
     func navigateToProfileDisplay() {
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        if let profileDisplayVC = storyboard.instantiateViewController(withIdentifier: "ProfileDisplayViewController") as? ProfileDisplayViewController {
+        if let profileDisplayVC = storyboard?.instantiateViewController(withIdentifier: "ProfileDisplayViewController") {
             profileDisplayVC.modalPresentationStyle = .fullScreen
-            self.present(profileDisplayVC, animated: true, completion: nil)
+            present(profileDisplayVC, animated: true)
         }
     }
 
     func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-        self.present(alert, animated: true, completion: nil)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }

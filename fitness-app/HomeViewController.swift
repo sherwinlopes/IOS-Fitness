@@ -26,6 +26,7 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
 
     var totalCalories: Int = 0
     var totalWater: Int = 0
+    var totalSteps: Int = 0  // Add a variable to hold the total steps
     var workoutLogs: [WorkoutLog] = []
     var goals: [Goal] = []
 
@@ -87,9 +88,11 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
     func fetchStepsData() {
         // Check if HealthKit is available
         guard HKHealthStore.isHealthDataAvailable() else {
+            // If HealthKit is not available, set steps to a default value (1200)
             print("HealthKit is not available on this device.")
             DispatchQueue.main.async {
-                self.stepsLabel.text = "0 steps"  // Display 0 steps if HealthKit is unavailable
+                self.totalSteps = 1200  // Set default steps to 1200
+                self.stepsLabel.text = "\(self.totalSteps) steps"  // Update steps label
             }
             return
         }
@@ -111,7 +114,8 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
                 // If there's an error, print the error and set steps to 0
                 print("Error fetching steps data: \(error?.localizedDescription ?? "Unknown error")")
                 DispatchQueue.main.async {
-                    self.stepsLabel.text = "0 steps"  // Set to zero if there is an error
+                    self.totalSteps = 0  // Set steps to 0 if there's an error
+                    self.stepsLabel.text = "0 steps"  // Update steps label
                 }
                 return
             }
@@ -121,14 +125,14 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
 
             // Update the stepsLabel on the main thread
             DispatchQueue.main.async {
-                self.stepsLabel.text = "\(Int(steps)) steps"
+                self.totalSteps = Int(steps)
+                self.stepsLabel.text = "\(self.totalSteps) steps"
             }
         }
 
         // Execute the query
         healthStore.execute(query)
     }
-
 
     func fetchWorkoutLogs() {
         guard let user = Auth.auth().currentUser else {
