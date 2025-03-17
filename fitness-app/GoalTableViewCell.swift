@@ -18,15 +18,21 @@ class GoalTableViewCell: UITableViewCell {
         
         var progress: Float = 0.0
         
-        // Calculate the progress for "Calories to Burn" and "Water to Drink"
-        if goal.type == "Calories to Burn" {
-            // Ensure that the totalCalories is used for progress calculation
+        // Calculate the progress for "Calories to Burn", "Water to Drink", and "Steps to Take"
+        switch goal.type {
+        case "Calories to Burn":
+            // Calculate progress for calories goal
             progress = Float(currentProgress) / Float(goal.target)
-        } else if goal.type == "Water to Drink" {
-            // Use the totalWater for water progress
+        case "Water to Drink":
+            // Calculate progress for water goal
             progress = Float(currentProgress) / Float(goal.target)
+        case "Steps to Take":
+            // Calculate progress for steps goal
+            progress = Float(currentProgress) / Float(goal.target)
+        default:
+            progress = 0.0
         }
-
+        
         // Set the progress value to the progress bar, ensuring it doesn't exceed 1.0
         goalProgress.progress = min(progress, 1.0)
         

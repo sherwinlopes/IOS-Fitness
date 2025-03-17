@@ -62,13 +62,13 @@ class ProfileSetupViewController: UIViewController {
             if let error = error {
                 self.showAlert(title: "Error Saving Data", message: error.localizedDescription)
             } else {
-                self.navigateToProfileDisplay()
+                self.navigateToHome()
             }
         }
     }
 
-    func navigateToProfileDisplay() {
-        if let profileDisplayVC = storyboard?.instantiateViewController(withIdentifier: "ProfileDisplayViewController") {
+    func navigateToHome() {
+        if let profileDisplayVC = storyboard?.instantiateViewController(withIdentifier: "HomeViewController") {
             profileDisplayVC.modalPresentationStyle = .fullScreen
             present(profileDisplayVC, animated: true)
         }

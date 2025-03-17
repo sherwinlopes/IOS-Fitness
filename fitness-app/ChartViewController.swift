@@ -4,19 +4,24 @@ import FirebaseFirestore
 import FirebaseAuth
 
 class ChartsViewController: UIViewController {
-    
+
     @IBOutlet weak var caloriesChartView: LineChartView!
     @IBOutlet weak var waterChartView: LineChartView!
-    
-    var workoutLogs: [WorkoutLog] = []
+    @IBOutlet weak var stepsChartView: LineChartView!
+
+    var dailyCalories: [Int] = Array(repeating: 0, count: 7)
+    var dailyWater: [Int] = Array(repeating: 0, count: 7)
+    var dailySteps: [Int] = Array(repeating: 0, count: 7)
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        setupChart(chartView: caloriesChartView, label: "Calories", color: .red)
-        setupChart(chartView: waterChartView, label: "Water", color: .blue)
-        
-        fetchWorkoutLogs()
+
+        // Bright Red, Green, Blue colors for the charts
+        setupChart(chartView: caloriesChartView, label: "Calories", color: UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1)) // Bright Red
+        setupChart(chartView: waterChartView, label: "Water", color: UIColor(red: 0.0, green: 0.8, blue: 1.0, alpha: 1)) // Bright Blue
+        setupChart(chartView: stepsChartView, label: "Steps", color: UIColor(red: 0.0, green: 1.0, blue: 0.0, alpha: 1)) // Bright Green
+
+        fetchUserTotals()
     }
 
     func setupChart(chartView: LineChartView, label: String, color: UIColor) {
@@ -30,81 +35,106 @@ class ChartsViewController: UIViewController {
         chartView.xAxis.granularity = 1
     }
 
-    func fetchWorkoutLogs() {
+    func fetchUserTotals() {
         guard let user = Auth.auth().currentUser else {
-            showAlert(title: "Error", message: "User is not authenticated.")
+            generateFakeData()
             return
         }
 
         let db = Firestore.firestore()
-        db.collection("users").document(user.uid).collection("workoutLogs")
-            .order(by: "timestamp", descending: true)
-            .getDocuments { (snapshot, error) in
-                if let error = error {
-                    print("Error fetching workouts: \(error.localizedDescription)")
-                    return
-                }
-
-                self.workoutLogs.removeAll()
-
-                for document in snapshot!.documents {
-                    let data = document.data()
-                    if let workoutType = data["workoutType"] as? String,
-                       let duration = data["duration"] as? Int,
-                       let calories = data["calories"] as? Int,
-                       let water = data["water"] as? Int,
-                       let timestamp = data["timestamp"] as? Timestamp {
-
-                        let log = WorkoutLog(workoutType: workoutType, duration: duration, calories: calories, water: water, timestamp: timestamp)
-                        self.workoutLogs.append(log)
-                    }
-                }
-
-                // Update both charts
-                self.updateChart(chartView: self.caloriesChartView, dataType: "calories", color: .red)
-                self.updateChart(chartView: self.waterChartView, dataType: "water", color: .blue)
-            }
-    }
-
-    func updateChart(chartView: LineChartView, dataType: String, color: UIColor) {
-        var dataEntries: [ChartDataEntry] = []
         let calendar = Calendar.current
         let today = Date()
 
+        // Get data for the last 7 days
+        var dateRange: [Date] = []
         for i in 0..<7 {
-            let date = calendar.date(byAdding: .day, value: -i, to: today)!
-            let dayStart = calendar.startOfDay(for: date)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
-
-            let dayLogs = workoutLogs.filter { log in
-                let logDate = log.timestamp.dateValue()
-                return logDate >= dayStart && logDate < dayEnd
+            if let date = calendar.date(byAdding: .day, value: -i, to: today) {
+                dateRange.append(date)
             }
-
-            var dailyValue = 0
-            for log in dayLogs {
-                dailyValue += (dataType == "calories") ? log.calories : log.water
-            }
-
-            let dayIndex = Double(i)
-            dataEntries.append(ChartDataEntry(x: dayIndex, y: Double(dailyValue)))
         }
 
-        let dataSet = LineChartDataSet(entries: dataEntries, label: dataType.capitalized)
-        dataSet.colors = [UIColor.black]
-        dataSet.circleColors = [UIColor.black]
-        dataSet.circleRadius = 6
+        // Fetch daily totals for each day in the last week
+        let dispatchGroup = DispatchGroup()
+
+        for (index, date) in dateRange.enumerated() {
+            dispatchGroup.enter()
+            let startOfDay = calendar.startOfDay(for: date)
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+
+            db.collection("users")
+                .document(user.uid)
+                .collection("dailyTotals")
+                .whereField("timestamp", isGreaterThanOrEqualTo: Timestamp(date: startOfDay))
+                .whereField("timestamp", isLessThan: Timestamp(date: endOfDay))
+                .getDocuments { (snapshot, error) in
+                    if let error = error {
+                        print("Error fetching daily totals: \(error.localizedDescription)")
+                        dispatchGroup.leave()
+                        return
+                    }
+
+                    var totalCaloriesForDay = 0
+                    var totalWaterForDay = 0
+                    var totalStepsForDay = 0
+
+                    for document in snapshot!.documents {
+                        let data = document.data()
+                        totalCaloriesForDay += data["totalCalories"] as? Int ?? 0
+                        totalWaterForDay += data["totalWater"] as? Int ?? 0
+                        totalStepsForDay += data["totalSteps"] as? Int ?? 0
+                    }
+
+                    self.dailyCalories[index] = totalCaloriesForDay
+                    self.dailyWater[index] = totalWaterForDay
+                    self.dailySteps[index] = totalStepsForDay
+
+                    dispatchGroup.leave()
+                }
+        }
+
+        dispatchGroup.notify(queue: .main) {
+            self.updateChart(chartView: self.caloriesChartView, data: self.dailyCalories, color: UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1)) // Bright Red
+            self.updateChart(chartView: self.waterChartView, data: self.dailyWater, color: UIColor(red: 0.0, green: 0.8, blue: 1.0, alpha: 1)) // Bright Blue
+            self.updateChart(chartView: self.stepsChartView, data: self.dailySteps, color: UIColor(red: 0.0, green: 1.0, blue: 0.0, alpha: 1)) // Bright Green
+        }
+    }
+
+    func generateFakeData() {
+        for i in 0..<7 {
+            self.dailyCalories[i] = Int.random(in: 1500...3000)
+            self.dailyWater[i] = Int.random(in: 1500...4000)
+            self.dailySteps[i] = Int.random(in: 5000...20000)
+        }
+
+        self.updateChart(chartView: self.caloriesChartView, data: self.dailyCalories, color: UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1)) // Bright Red
+        self.updateChart(chartView: self.waterChartView, data: self.dailyWater, color: UIColor(red: 0.0, green: 0.8, blue: 1.0, alpha: 1)) // Bright Blue
+        self.updateChart(chartView: self.stepsChartView, data: self.dailySteps, color: UIColor(red: 0.0, green: 1.0, blue: 0.0, alpha: 1)) // Bright Green
+    }
+
+    func updateChart(chartView: LineChartView, data: [Int], color: UIColor) {
+        var dataEntries: [ChartDataEntry] = []
+
+        for (index, value) in data.enumerated() {
+            dataEntries.append(ChartDataEntry(x: Double(index), y: Double(value)))
+        }
+
+        let dataSet = LineChartDataSet(entries: dataEntries, label: "Total")
+        dataSet.colors = [color]
+        dataSet.circleColors = [color]
+        dataSet.circleRadius = 2
         dataSet.drawCirclesEnabled = true
         dataSet.valueFont = .boldSystemFont(ofSize: 14)
-        dataSet.lineDashLengths = [5, 5]
+        dataSet.lineDashLengths = [] // Remove the dotted line (make it solid)
         dataSet.drawFilledEnabled = true
 
-        let gradientColors = [color.cgColor, UIColor.clear.cgColor] as CFArray
-        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors, locations: [0.5, 1.0])!
-        dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
+        // Create the gradient fade effect (from transparent to solid color, bottom to top)
+        let gradientColors = [UIColor.clear.cgColor, color.cgColor] as CFArray
+        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors, locations: [0.0, 0.6])!
+        dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90) // Reverse gradient (bottom to top)
 
-        let data = LineChartData(dataSet: dataSet)
-        chartView.data = data
+        // Set data to the chart
+        let chartData = LineChartData(dataSet: dataSet)
+        chartView.data = chartData
     }
 
     func showAlert(title: String, message: String) {

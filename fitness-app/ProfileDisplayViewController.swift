@@ -4,70 +4,84 @@ import FirebaseAuth
 
 class ProfileDisplayViewController: UIViewController {
 
+    @IBOutlet weak var profileImageView: UIImageView!
     @IBOutlet weak var profilename: UILabel!
     @IBOutlet weak var profileage: UILabel!
     @IBOutlet weak var profilegender: UILabel!
     @IBOutlet weak var profileheight: UILabel!
     @IBOutlet weak var profileweight: UILabel!
     
+    @IBOutlet weak var logoutButton: UIButton!  // Add the logout button outlet
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        // Fetch user data from Firestore
         fetchUserProfileData()
+        
+        // Style the logout button
+        styleButton(logoutButton)
     }
-    
+
     @IBAction func logoutTapped(_ sender: UIButton) {
-           // Sign out the user from Firebase
-           do {
-               try Auth.auth().signOut()
-               // Navigate back to the LoginViewController after logout
-               navigateToLogin()
-           } catch let signOutError as NSError {
-               showAlert(title: "Logout Failed", message: signOutError.localizedDescription)
-           }
-       }
-    
+        do {
+            try Auth.auth().signOut()
+            navigateToLogin()
+        } catch let error {
+            showAlert(title: "Logout Failed", message: error.localizedDescription)
+        }
+    }
+
     func fetchUserProfileData() {
-        // Ensure that the user is logged in
         guard let userID = Auth.auth().currentUser?.uid else { return }
 
-        // Reference to Firestore
-        let db = Firestore.firestore()
-        
-        // Fetch the user's profile data from the "users" collection
-        db.collection("users").document(userID).getDocument { (document, error) in
+        Firestore.firestore().collection("users").document(userID).getDocument { document, error in
             if let error = error {
-                self.showAlert(title: "Error", message: "Error fetching user data: \(error.localizedDescription)")
+                self.showAlert(title: "Error", message: "Error fetching data: \(error.localizedDescription)")
+                return
+            }
+            guard let data = document?.data() else {
+                self.showAlert(title: "No Data", message: "No profile data found.")
                 return
             }
             
-            // Check if document exists
-            if let document = document, document.exists {
-                // Parse the data into the corresponding fields
-                let data = document.data()
-                self.profilename.text = data?["name"] as? String ?? "No Name"
-                self.profileage.text = "\(data?["age"] as? Int ?? 0)"
-                self.profilegender.text = data?["gender"] as? String ?? "No Gender"
-                self.profileheight.text = "\(data?["height"] as? Double ?? 0.0)"
-                self.profileweight.text = "\(data?["weight"] as? Double ?? 0.0)"
-            } else {
-                self.showAlert(title: "No Data", message: "No profile data found.")
+            if let gender = data["gender"] as? String {
+                if gender == "Male" {
+                    self.profileImageView.image = UIImage(named: "male.png")
+                } else if gender == "Female" {
+                    self.profileImageView.image = UIImage(named: "female.png")
+                } else {
+                    self.profileImageView.image = UIImage(named: "default.png") // Use a default image if gender is not recognized
+                }
             }
+
+            self.profilename.text = data["name"] as? String ?? "No Name"
+            self.profileage.text = "\(data["age"] as? Int ?? 0)"
+            self.profilegender.text = data["gender"] as? String ?? "No Gender"
+            self.profileheight.text = "\(data["height"] as? Double ?? 0.0)"
+            self.profileweight.text = "\(data["weight"] as? Double ?? 0.0)"
         }
     }
-    
+
     func navigateToLogin() {
-           let storyboard = UIStoryboard(name: "Main", bundle: nil)
-           if let loginVC = storyboard.instantiateViewController(withIdentifier: "LoginViewController") as? LoginViewController {
-               loginVC.modalPresentationStyle = .fullScreen
-               self.present(loginVC, animated: true, completion: nil)
-           }
-       }
-    
+        if let loginVC = storyboard?.instantiateViewController(withIdentifier: "LoginViewController") as? LoginViewController {
+            loginVC.modalPresentationStyle = .fullScreen
+            present(loginVC, animated: true)
+        }
+    }
+
     func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-        self.present(alert, animated: true, completion: nil)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    // Button styling method
+    func styleButton(_ button: UIButton) {
+        let buttonFont = UIFont.systemFont(ofSize: 28, weight: .bold)
+        button.titleLabel?.font = buttonFont
+        
+        button.layer.cornerRadius = 10
+        button.layer.masksToBounds = true
+        
+        button.heightAnchor.constraint(equalToConstant: 50).isActive = true
     }
 }

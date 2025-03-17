@@ -13,6 +13,7 @@ struct WorkoutLog {
 
 class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, WorkoutViewControllerDelegate {
 
+    @IBOutlet weak var profileImageView: UIImageView!
     @IBOutlet weak var username: UILabel!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var stepsLabel: UILabel!
@@ -26,7 +27,7 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
 
     var totalCalories: Int = 0
     var totalWater: Int = 0
-    var totalSteps: Int = 0  // Add a variable to hold the total steps
+    var totalSteps: Int = 0
     var workoutLogs: [WorkoutLog] = []
     var goals: [Goal] = []
 
@@ -38,9 +39,20 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         fetchGoalsFromFirestore()
         fetchUserProfile()
         requestHealthKitAuthorization()
+        fetchDailyTotals()  // Fetch daily totals
 
         // Increase the height of progress bar (UIProgressView)
         goalProgress.heightAnchor.constraint(equalToConstant: 10).isActive = true
+        
+        // Add gesture recognizer to the profile image
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(profileImageTapped))
+        profileImageView.isUserInteractionEnabled = true
+        profileImageView.addGestureRecognizer(tapGesture)
+    }
+
+    @objc func profileImageTapped() {
+        // Navigate to the ProfileDisplayViewController
+        navigateToProfileDisplay()
     }
 
     func fetchUserProfile() {
@@ -55,9 +67,23 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
                 self.showAlert(title: "Error", message: "Error fetching user data: \(error.localizedDescription)")
                 return
             }
-
+            
+            // Check if the document exists
             if let document = document, document.exists {
                 let data = document.data()
+                
+                // Set the image based on gender
+                if let gender = data?["gender"] as? String {
+                    if gender == "Male" {
+                        self.profileImageView.image = UIImage(named: "male.png")
+                    } else if gender == "Female" {
+                        self.profileImageView.image = UIImage(named: "female.png")
+                    } else {
+                        self.profileImageView.image = UIImage(named: "default.png") // Use a default image if gender is not recognized
+                    }
+                }
+                
+                // Set other profile information
                 self.username.text = data?["name"] as? String ?? "No Name"
             } else {
                 self.showAlert(title: "Error", message: "User data not found.")
@@ -86,52 +112,46 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
     }
 
     func fetchStepsData() {
-        // Check if HealthKit is available
+        #if targetEnvironment(simulator)
+        // If running on a simulator, set default steps to 1200
+        DispatchQueue.main.async {
+            self.totalSteps = 1200
+            self.stepsLabel.text = "\(self.totalSteps) steps"
+        }
+        #else
+        // If running on a physical device, check for HealthKit availability
         guard HKHealthStore.isHealthDataAvailable() else {
-            // If HealthKit is not available, set steps to a default value (1200)
-            print("HealthKit is not available on this device.")
             DispatchQueue.main.async {
-                self.totalSteps = 1200  // Set default steps to 1200
-                self.stepsLabel.text = "\(self.totalSteps) steps"  // Update steps label
+                self.totalSteps = 0  // Set steps to 0 if HealthKit is unavailable
+                self.stepsLabel.text = "0 steps"
             }
             return
         }
 
-        // Define the step count type
         let stepCountType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
-
-        // Get the current date and the start of today
         let calendar = Calendar.current
         let now = Date()
         let startOfDay = calendar.startOfDay(for: now)
-
-        // Create a predicate for the date range (start of the day to now)
         let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: now, options: .strictEndDate)
 
-        // Create a query to get the cumulative sum of steps
-        let query = HKStatisticsQuery(quantityType: stepCountType, quantitySamplePredicate: predicate, options: .cumulativeSum) { query, statistics, error in
+        let query = HKStatisticsQuery(quantityType: stepCountType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, statistics, error in
             guard let statistics = statistics, error == nil else {
-                // If there's an error, print the error and set steps to 0
-                print("Error fetching steps data: \(error?.localizedDescription ?? "Unknown error")")
                 DispatchQueue.main.async {
-                    self.totalSteps = 0  // Set steps to 0 if there's an error
-                    self.stepsLabel.text = "0 steps"  // Update steps label
+                    self.totalSteps = 0
+                    self.stepsLabel.text = "0 steps"
                 }
                 return
             }
 
-            // Get the total number of steps from the query
             let steps = statistics.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
-
-            // Update the stepsLabel on the main thread
             DispatchQueue.main.async {
                 self.totalSteps = Int(steps)
                 self.stepsLabel.text = "\(self.totalSteps) steps"
             }
         }
 
-        // Execute the query
         healthStore.execute(query)
+        #endif
     }
 
     func fetchWorkoutLogs() {
@@ -204,16 +224,61 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         }
     }
 
+    func fetchDailyTotals() {
+        guard let user = Auth.auth().currentUser else {
+            showAlert(title: "Error", message: "User is not authenticated.")
+            return
+        }
+
+        // Format current date as "yyyy-MM-dd" to get today's data
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: Date())
+
+        let db = Firestore.firestore()
+        db.collection("users").document(user.uid).collection("dailyTotals").document(dateString).getDocument { (document, error) in
+            if let error = error {
+                print("Error fetching daily totals: \(error.localizedDescription)")
+                return
+            }
+
+            if let document = document, document.exists {
+                let data = document.data()
+                
+                // Set today's total values
+                self.totalCalories = data?["totalCalories"] as? Int ?? 0
+                self.totalWater = data?["totalWater"] as? Int ?? 0
+                self.totalSteps = data?["totalSteps"] as? Int ?? 0
+
+                // Update labels to show today's totals
+                self.caloriesLabel.text = "\(self.totalCalories) kcal"
+                self.waterLabel.text = "\(self.totalWater) ml"
+                self.stepsLabel.text = "\(self.totalSteps) steps"
+                
+                // Call to update goal progress after fetching totals
+                self.updateGoalProgress()
+            } else {
+                // Handle case where data is not found
+                print("No daily totals found for today.")
+                self.caloriesLabel.text = "0 kcal"
+                self.waterLabel.text = "0 ml"
+                self.stepsLabel.text = "0 steps"
+            }
+        }
+    }
+
     func updateGoalProgress() {
         var mostProgressedGoal: Goal?
         var highestProgress: Float = 0
 
         for goal in goals {
             let progress: Float
-            if goal.type == "Calories" {
+            if goal.type == "Calories to Burn" {
                 progress = Float(totalCalories) / Float(goal.target)
-            } else if goal.type == "Water" {
+            } else if goal.type == "Water to Drink" {
                 progress = Float(totalWater) / Float(goal.target)
+            } else if goal.type == "Steps to Take" {
+                progress = Float(totalSteps) / Float(goal.target)
             } else {
                 continue
             }
@@ -225,24 +290,34 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         }
 
         if let goal = mostProgressedGoal {
-            goalName.text = "Goal: \(goal.type)"
-            goalTargetValue.text = "Target: \(goal.target)"
+            goalName.text = "\(goal.type)"
+            goalTargetValue.text = "\(goal.target)"
             goalProgress.progress = min(highestProgress, 1.0)
         }
     }
 
     func updateTotalStatsInFirestore() {
         guard let user = Auth.auth().currentUser else { return }
-
+        
         let db = Firestore.firestore()
-        db.collection("users").document(user.uid).updateData([
+        let timestamp = Timestamp(date: Date()) // Get the current date and time
+        
+        // Format date as "yyyy-MM-dd" for better readability
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: timestamp.dateValue())
+
+        // Store daily totals with merge: true to avoid overwriting unintended fields
+        db.collection("users").document(user.uid).collection("dailyTotals").document(dateString).setData([
             "totalCalories": totalCalories,
-            "totalWater": totalWater
-        ]) { error in
+            "totalWater": totalWater,
+            "totalSteps": totalSteps,
+            "timestamp": timestamp
+        ], merge: true) { error in
             if let error = error {
-                print("Error updating total stats: \(error.localizedDescription)")
+                print("Error updating daily totals: \(error.localizedDescription)")
             } else {
-                print("Total calories & water updated successfully!")
+                print("Daily totals updated successfully!")
             }
         }
     }
@@ -264,7 +339,13 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         fetchWorkoutLogs()
     }
 
-    // Action method to navigate to Goals screen
+    func navigateToProfileDisplay() {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        if let profileVC = storyboard.instantiateViewController(withIdentifier: "ProfileDisplayViewController") as? ProfileDisplayViewController {
+            self.present(profileVC, animated: true, completion: nil)
+        }
+    }
+
     @IBAction func goalsWorkoutTapped(_ sender: UIButton) {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         if let goalVC = storyboard.instantiateViewController(withIdentifier: "GoalViewController") as? GoalViewController {
@@ -291,5 +372,11 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
         self.present(alert, animated: true, completion: nil)
+    }
+}
+
+extension Date {
+    func startOfDay() -> Date {
+        return Calendar.current.startOfDay(for: self)
     }
 }
