@@ -37,7 +37,7 @@ class WorkoutViewController: UIViewController {
     func setupUI() {
         view.backgroundColor = UIColor.systemBackground
         
-        workoutTypeButton.backgroundColor = UIColor.gray
+        workoutTypeButton.backgroundColor = UIColor.orange
         workoutTypeButton.setTitleColor(.white, for: .normal)
         workoutTypeButton.layer.cornerRadius = 10
         workoutTypeButton.heightAnchor.constraint(equalToConstant: 40).isActive = true

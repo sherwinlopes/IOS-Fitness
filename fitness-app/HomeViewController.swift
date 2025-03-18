@@ -13,6 +13,12 @@ struct WorkoutLog {
 
 class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, WorkoutViewControllerDelegate {
 
+    @IBOutlet weak var stepsView: UIView!
+    @IBOutlet weak var caloriesView: UIView!
+    @IBOutlet weak var waterView: UIView!
+    @IBOutlet weak var goalView: UIView!
+    @IBOutlet weak var activitiesView: UIView!
+    
     @IBOutlet weak var profileImageView: UIImageView!
     @IBOutlet weak var username: UILabel!
     @IBOutlet weak var tableView: UITableView!
@@ -22,6 +28,10 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
     @IBOutlet weak var goalName: UILabel!
     @IBOutlet weak var goalTargetValue: UILabel!
     @IBOutlet weak var goalProgress: UIProgressView!
+    
+    @IBOutlet weak var goalsButton: UIButton!
+    @IBOutlet weak var logButton: UIButton!
+    @IBOutlet weak var progressButton: UIButton!
     
     let healthStore = HKHealthStore()
 
@@ -35,6 +45,30 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         super.viewDidLoad()
         tableView.dataSource = self
         tableView.delegate = self
+        
+        applyGradient(to: stepsView, colors: [UIColor.green.withAlphaComponent(0.5), UIColor.green])
+        applyGradient(to: caloriesView, colors: [UIColor.systemRed, UIColor.orange])
+        applyGradient(to: waterView, colors: [UIColor.systemTeal, UIColor.blue.withAlphaComponent(0.7)])
+        
+        let goldColor = UIColor(red: 1.0, green: 0.843, blue: 0.0, alpha: 1.0)  // Custom gold color
+        applyGradient(to: goalView, colors: [goldColor.withAlphaComponent(0.8), UIColor.yellow])
+
+        applyGradient(to: activitiesView, colors: [UIColor.purple.withAlphaComponent(0.5), UIColor.systemBlue.withAlphaComponent(0.3)])
+        
+        applyGradient(to: tableView, colors: [UIColor.purple.withAlphaComponent(0.5), UIColor.systemBlue.withAlphaComponent(0.3)])
+
+        let symbolConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        let progressImage = UIImage(systemName: "chart.line.uptrend.xyaxis", withConfiguration: symbolConfig)
+
+        progressButton.setImage(progressImage, for: .normal)
+        progressButton.setTitle(" Progress", for: .normal) // Space before text for spacing
+        progressButton.tintColor = .green  // Ensure symbol color matches text
+        progressButton.setTitleColor(.green, for: .normal)
+
+        // Adjust spacing between icon and text
+        progressButton.semanticContentAttribute = .forceLeftToRight
+        progressButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -5, bottom: 0, right: 5)
+        
         fetchWorkoutLogs()
         fetchGoalsFromFirestore()
         fetchUserProfile()
@@ -49,11 +83,23 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         profileImageView.isUserInteractionEnabled = true
         profileImageView.addGestureRecognizer(tapGesture)
     }
+    
 
     @objc func profileImageTapped() {
         // Navigate to the ProfileDisplayViewController
         navigateToProfileDisplay()
     }
+    
+    func applyGradient(to view: UIView, colors: [UIColor]) {
+        let gradientLayer = CAGradientLayer()
+        gradientLayer.frame = view.bounds
+        gradientLayer.colors = colors.map { $0.cgColor }
+        gradientLayer.startPoint = CGPoint(x: 0.0, y: 0.5) // Left to right gradient
+        gradientLayer.endPoint = CGPoint(x: 1.0, y: 0.5)
+        gradientLayer.cornerRadius = view.layer.cornerRadius
+        view.layer.insertSublayer(gradientLayer, at: 0)
+    }
+
 
     func fetchUserProfile() {
         guard let user = Auth.auth().currentUser else {
@@ -245,31 +291,26 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
             if let document = document, document.exists {
                 let data = document.data()
                 
-                // Set today's total values
                 self.totalCalories = data?["totalCalories"] as? Int ?? 0
                 self.totalWater = data?["totalWater"] as? Int ?? 0
                 self.totalSteps = data?["totalSteps"] as? Int ?? 0
 
-                // Update labels to show today's totals
                 self.caloriesLabel.text = "\(self.totalCalories) kcal"
                 self.waterLabel.text = "\(self.totalWater) ml"
                 self.stepsLabel.text = "\(self.totalSteps) steps"
                 
-                // Call to update goal progress after fetching totals
                 self.updateGoalProgress()
             } else {
                 // Handle case where data is not found
                 print("No daily totals found for today.")
                 self.caloriesLabel.text = "0 kcal"
                 self.waterLabel.text = "0 ml"
-                self.stepsLabel.text = "0 steps"
             }
         }
     }
 
     func updateGoalProgress() {
-        var mostProgressedGoal: Goal?
-        var highestProgress: Float = 0
+        var filteredGoals: [(goal: Goal, progress: Float)] = []
 
         for goal in goals {
             let progress: Float
@@ -283,31 +324,37 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
                 continue
             }
 
-            if progress > highestProgress {
-                highestProgress = progress
-                mostProgressedGoal = goal
+            if progress < 1.0 {
+                filteredGoals.append((goal, progress))
             }
         }
 
-        if let goal = mostProgressedGoal {
-            goalName.text = "\(goal.type)"
-            goalTargetValue.text = "\(goal.target)"
-            goalProgress.progress = min(highestProgress, 1.0)
+        filteredGoals.sort { $0.progress > $1.progress }
+
+        if let firstGoal = filteredGoals.first {
+            goalName.text = firstGoal.goal.type
+            goalTargetValue.text = "\(firstGoal.goal.target)"
+            goalProgress.progress = firstGoal.progress
+        } else {
+            goalName.text = "No Active Goals"
+            goalTargetValue.text = ""
+            goalProgress.progress = 0
         }
+
+        tableView.reloadData()
     }
+
 
     func updateTotalStatsInFirestore() {
         guard let user = Auth.auth().currentUser else { return }
         
         let db = Firestore.firestore()
-        let timestamp = Timestamp(date: Date()) // Get the current date and time
+        let timestamp = Timestamp(date: Date())
         
-        // Format date as "yyyy-MM-dd" for better readability
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateString = dateFormatter.string(from: timestamp.dateValue())
 
-        // Store daily totals with merge: true to avoid overwriting unintended fields
         db.collection("users").document(user.uid).collection("dailyTotals").document(dateString).setData([
             "totalCalories": totalCalories,
             "totalWater": totalWater,
@@ -330,6 +377,8 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         if let cell = tableView.dequeueReusableCell(withIdentifier: "WorkoutCell", for: indexPath) as? WorkoutTableViewCell {
             let workoutLog = workoutLogs[indexPath.row]
             cell.configure(with: workoutLog)
+            cell.layer.cornerRadius = 10
+            cell.layer.masksToBounds = true
             return cell
         }
         return UITableViewCell()
@@ -349,6 +398,7 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
     @IBAction func goalsWorkoutTapped(_ sender: UIButton) {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         if let goalVC = storyboard.instantiateViewController(withIdentifier: "GoalViewController") as? GoalViewController {
+            goalVC.modalPresentationStyle = .fullScreen  // Set the presentation style to full screen
             present(goalVC, animated: true, completion: nil)
         }
     }
@@ -364,6 +414,7 @@ class HomeViewController: UIViewController, UITableViewDataSource, UITableViewDe
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         if let workoutVC = storyboard.instantiateViewController(withIdentifier: "WorkoutViewController") as? WorkoutViewController {
             workoutVC.delegate = self
+            workoutVC.modalPresentationStyle = .fullScreen  // Set the presentation style to full screen
             present(workoutVC, animated: true, completion: nil)
         }
     }

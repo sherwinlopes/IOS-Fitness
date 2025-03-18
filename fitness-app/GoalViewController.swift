@@ -17,7 +17,7 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
     var selectedGoalType = ""
     var totalCalories = 0
     var totalWater = 0
-    var totalSteps = 0 // New variable for total steps
+    var totalSteps = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -39,11 +39,11 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
         )
         goalTypeButton.showsMenuAsPrimaryAction = true
     }
-    
+
     func setupUI() {
         view.backgroundColor = UIColor.systemBackground
         
-        goalTypeButton.backgroundColor = UIColor.gray
+        goalTypeButton.backgroundColor = UIColor.systemGreen
         goalTypeButton.setTitleColor(.white, for: .normal)
         goalTypeButton.layer.cornerRadius = 10
         goalTypeButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
@@ -84,17 +84,25 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
     func fetchUserTotals() {
         guard let user = Auth.auth().currentUser else { return }
 
-        Firestore.firestore().collection("users").document(user.uid).getDocument { (document, error) in
+        let db = Firestore.firestore()
+        let dateString = getCurrentDateString()
+
+        db.collection("users").document(user.uid).collection("dailyTotals").document(dateString).getDocument { [weak self] (document, error) in
+            guard let self = self else { return }
+
             if let error = error {
-                print("Error fetching user totals: \(error.localizedDescription)")
+                print("Error fetching daily totals: \(error.localizedDescription)")
                 return
             }
-            
+
             if let data = document?.data() {
                 self.totalCalories = data["totalCalories"] as? Int ?? 0
                 self.totalWater = data["totalWater"] as? Int ?? 0
-                self.totalSteps = data["totalSteps"] as? Int ?? 0 // Fetching total steps
+                self.totalSteps = data["totalSteps"] as? Int ?? 0
+            } else {
+                print("No daily totals found for today's date.")
             }
+
             self.goalTable.reloadData()
         }
     }
@@ -102,7 +110,9 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
     func fetchGoalsFromFirestore() {
         guard let user = Auth.auth().currentUser else { return }
 
-        Firestore.firestore().collection("users").document(user.uid).collection("goals").getDocuments { (snapshot, error) in
+        Firestore.firestore().collection("users").document(user.uid).collection("goals").getDocuments { [weak self] (snapshot, error) in
+            guard let self = self else { return }
+
             if let error = error {
                 print("Error fetching goals: \(error.localizedDescription)")
                 return
@@ -131,14 +141,13 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
         let goal = goals[indexPath.row]
         let currentProgress: Int
         
-        // Determine current progress based on goal type
         switch goal.type {
         case "Calories to Burn":
             currentProgress = totalCalories
         case "Water to Drink":
             currentProgress = totalWater
         case "Steps to Take":
-            currentProgress = totalSteps // Using totalSteps for steps goal
+            currentProgress = totalSteps
         default:
             currentProgress = 0
         }
@@ -146,7 +155,21 @@ class GoalViewController: UIViewController, UITableViewDelegate, UITableViewData
         cell.configure(with: goal, currentProgress: currentProgress)
         return cell
     }
+
+    func getCurrentDateString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
     
+    @IBAction func backTapped(_ sender: Any) {
+        if let homeDisplay = storyboard?.instantiateViewController(withIdentifier: "HomeViewController") {
+            homeDisplay.modalPresentationStyle = .fullScreen
+            present(homeDisplay, animated: true)
+        }
+    }
+    
+
     func showAlert(_ title: String, _ message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
